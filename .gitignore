@@ -1,0 +1,120 @@
+# Node.js dependencies
+node_modules/
+
+# Python Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.build/
+dist/
+eggs/
+parts/
+sdist/
+develop-eggs/
+.eggs/
+lib/
+lib64/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*,cover
+
+# Jupyter Notebook files
+.ipynb_checkpoints
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Flask instance folder
+instance/
+.webassets-cache
+
+# PyCharm files
+.idea/
+
+# Visual Studio Code files
+.vscode/
+
+# Other files
+*.log
+uploads/
+prediction_results/
+Results/
+models/
+*.h5
+*.hdf5
+*.keras
+*.ckpt
+*.pb
+*.pt
+*.pth
+data/
+datasets/
+*.tfrecord
+*.tfrecords
+tmp/
+temp/
+logs/
+*.out
+*.tmp
+*.png
+*.jpg
+*.jpeg
+*.bmp
+*.gif
+*.tif
+*.tiff
+*.csv
+*.json
+checkpoint/
+checkpoints/
+train_log/
+*.env
+.cache/
+__pycache__/
+*.o
+*.so
+*.pyc
+*.pyo
+*.pyd
+htmlcov/
+.coverage
+test-results/
+junit.xml
+pytest.xml
+profiler.log
+*.swp
+*.bak
+*~
+*.orig
+*.rej
+*.swo
+*.sqlite3
+*.db
+*.db-journal
+
+# OS-specific files
+.DS_Store
+Thumbs.db

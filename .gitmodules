@@ -1,0 +1,3 @@
+[submodule "App/Py/JB/NeuralNetworkForFoliageDetection"]
+	path = App/Py/JB/NeuralNetworkForFoliageDetection
+	url = https://github.com/Valentine199/NeuralNetworkForFoliageDetection
