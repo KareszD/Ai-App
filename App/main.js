@@ -29,63 +29,28 @@ function createWindow() {
 // Function to start the Flask API
 function startApi() {
   const apiPath = path.join(__dirname, 'Py', 'start.bat');
-  const pythonExecutable = getPythonExecutable();
-/*
-  if (!pythonExecutable) {
-    log.error('Python executable not found.');
-    console.error('Python executable not found.');
-    return;
-  }
-log.info(apiPath)
-  // Spawn the Flask subprocess
-  const pyProg = spawn(pythonExecutable, [apiPath], {
-    cwd: path.dirname(apiPath), // Set working directory to the API's directory
-    shell: false,               // Use shell false for direct execution
-  });*/
-  exec(`"${apiPath}"`, (error, stdout, stderr) => {
+  const options = {
+    cwd: path.dirname(apiPath),
+  };
+
+  console.log(`Starting API using batch file at: ${apiPath}`);
+  console.log(`Working directory set to: ${options.cwd}`);
+
+  exec(`"${apiPath}"`, options, (error, stdout, stderr) => {
     if (error) {
       console.error(`Error executing batch file: ${error.message}`);
       return;
     }
-  
+
     if (stderr) {
       console.error(`Batch file stderr: ${stderr}`);
-      return;
+      // Continue processing; stderr may contain warnings
     }
-  
+
     console.log(`Batch file output:\n${stdout}`);
   });
-  // Log stdout
-  /*
-  apiProcess.stdout.on('data', (data) => {
-    log.info(`API stdout: ${data}`);
-    console.log(`API stdout: ${data}`);
-  });*/
-
-  // Log stderr
-  /*
-  apiProcess.stderr.on('data', (data) => {
-    log.error(`API stderr: ${data}`);
-    console.error(`API stderr: ${data}`);
-  });*/
-
-  // Handle subprocess exit
-  /*
-  apiProcess.on('exit', (code, signal) => {
-    log.info(`API subprocess exited with code ${code} and signal ${signal}`);
-    console.log(`API subprocess exited with code ${code} and signal ${signal}`);
-    apiProcess = null; // Reset the process variable
-  });*/
-/*
-  apiProcess.on('error', (err) => {
-    log.error(`Failed to start API subprocess: ${err}`);
-    console.error(`Failed to start API subprocess: ${err}`);
-    apiProcess = null;
-  });*/
-
-  //log.info(`Started API subprocess with PID ${apiProcess.pid}`);
-  //console.log(`Started API subprocess with PID ${apiProcess.pid}`);
 }
+
 
 // Function to stop the Flask API
 function stopApi() {
