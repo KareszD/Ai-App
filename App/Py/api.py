@@ -1,54 +1,67 @@
-from flask import Flask, request, jsonify
+# api.py
+
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 import os
-import time
-from threading import Thread
+import uuid
+import threading
 import sys
+
+# Configure Flask app
+app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
+
+# Configure upload and results folders
+UPLOAD_FOLDER = 'uploads'
+RESULTS_FOLDER = 'results'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(RESULTS_FOLDER, exist_ok=True)
+
+# Update Python path to include Predictor module
+predictor_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'App', 'Py', 'JB', 'NeuralNetworkForFoliageDetection', 'MainPredict'))
+sys.path.append(predictor_dir)
 
 from JB.NeuralNetworkForFoliageDetection.MainPredict import Predictor
 
-app = Flask(__name__)
-
-# Configure upload folder
-UPLOAD_FOLDER = 'uploads'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-# Store prediction progress
+# Store prediction progress and results
 progress_status = {}
 prediction_results = {}
 
 def process_image(file_path, task_id):
     try:
-        # Initialize your Predictor instance
+        print(f"[Task {task_id}] Starting prediction for {file_path}")
+        # Initialize Predictor instance
         predictor = Predictor(
             Path=file_path,
-            OutputDir='prediction_results',  # Specify your output directory
-            classNum=6,                      # Adjust as needed
-            patchSize=256,                   # Adjust as needed
-            IsOutputPOI=False                # Adjust as needed
+            OutputDir=RESULTS_FOLDER,  # Ensure this directory exists
+            classNum=6,                # Adjust based on your model
+            patchSize=256,             # Adjust based on your model
+            IsOutputPOI=False          # Adjust based on your needs
         )
+        print(f"[Task {task_id}] Predictor initialized.")
 
-        # Update progress status
-        progress_status[task_id] = 0
+        # Update progress
+        progress_status[task_id] = 10
+        print(f"[Task {task_id}] Progress set to 10%.")
 
-        # Call the predict_identification method
-        # You might need to adjust the arguments based on your implementation
+        # Run prediction
         predictor.predict_identification(
-            modelPath='App/Py/JB/NeuralNetworkForFoliageDetection/FoldiKutya/foldiKutya_100epoch_noFilter_yolov8_pose_BG_10%_normRes_trainOnPose_v2',  # Path to your model file
+            modelPath=os.path.join("Py\\JB\\NeuralNetworkForFoliageDetection\\FoldiKutya\\foldiKutya_500epoch_CLAHE_NoSelfContemination_SameFiledRes_v9mModel"),  # Ensure the model path is correct
             data_path=file_path,
             input_labels=['label1', 'label2'],  # Replace with your actual labels
-            needs_splitting=False               # Set to True if needed
+            needs_splitting=False
         )
+        print(f"[Task {task_id}] Prediction completed.")
 
-        # Update progress to 100% upon completion
+        # Update progress to 100%
         progress_status[task_id] = 100
         prediction_results[task_id] = 'Prediction completed successfully.'
+        print(f"[Task {task_id}] Progress set to 100%.")
 
     except Exception as e:
-        # Handle exceptions and update progress status
-        progress_status[task_id] = -1  # Indicates an error
+        progress_status[task_id] = -1  # Indicates error
         prediction_results[task_id] = str(e)
-        print(f'Error processing task {task_id}: {e}')
+        print(f'[Task {task_id}] Error processing task: {e}')
 
 @app.route('/upload', methods=['POST'])
 def upload_image():
@@ -61,15 +74,19 @@ def upload_image():
         return jsonify({'error': 'No selected file'}), 400
 
     # Generate a unique task ID
-    task_id = str(time.time()).replace('.', '')
+    task_id = str(uuid.uuid4())
 
-    # Save the image to the upload folder
+    # Save the image
     filename = f'{task_id}_{image.filename}'
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file_path = os.path.join(UPLOAD_FOLDER, filename)
     image.save(file_path)
 
+    # Initialize progress and results
+    progress_status[task_id] = 0
+    prediction_results[task_id] = 'Processing...'
+
     # Start a new thread to process the image
-    thread = Thread(target=process_image, args=(file_path, task_id))
+    thread = threading.Thread(target=process_image, args=(file_path, task_id))
     thread.start()
 
     return jsonify({'message': 'Image uploaded successfully', 'task_id': task_id}), 200
@@ -78,8 +95,7 @@ def upload_image():
 def get_progress():
     task_id = request.args.get('task_id')
     if task_id in progress_status:
-        progress = progress_status[task_id]
-        return jsonify({'task_id': task_id, 'progress': progress})
+        return jsonify({'task_id': task_id, 'progress': progress_status[task_id]}), 200
     else:
         return jsonify({'error': 'Invalid task ID'}), 400
 
@@ -88,13 +104,18 @@ def get_result():
     task_id = request.args.get('task_id')
     if task_id in prediction_results:
         result = prediction_results[task_id]
-        return jsonify({'task_id': task_id, 'result': result})
+        return jsonify({'task_id': task_id, 'result': result}), 200
     else:
         return jsonify({'error': 'Result not available or invalid task ID'}), 400
 
+@app.route('/results/<filename>', methods=['GET'])
+def get_result_image(filename):
+    return send_from_directory(RESULTS_FOLDER, filename)
+
 @app.route('/status', methods=['GET'])
 def get_status():
-    return "up"
+    return "API is running.", 200
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    from waitress import serve
+    serve(app, host='0.0.0.0', port=5000)

@@ -24,6 +24,8 @@
       }
       .container {
         text-align: center;
+        width: 100%;
+        max-width: 600px; /* Adjusted for better layout */
       }
       .dark-mode {
         background-color: #121212;
@@ -40,6 +42,7 @@
         border: none;
         font-size: 1.5rem;
         cursor: pointer;
+        color: #ffffff; /* Adjust color for visibility in dark mode */
       }
       #apiStatus {
         position: absolute;
@@ -56,11 +59,53 @@
         max-width: 500px;
         margin-top: 20px;
       }
+      /* Styles for result display */
+      .result-container {
+        margin-top: 30px;
+        width: 100%;
+        max-width: 600px;
+        display: none; /* Hidden by default */
+      }
+      .result-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+        background-color: #ffffff;
+        padding: 10px;
+        border-radius: 5px;
+      }
+      .dark-mode .result-item {
+        background-color: #1e1e1e;
+      }
+      .result-item img {
+        max-width: 150px;
+        max-height: 150px;
+        margin-right: 20px;
+        border-radius: 5px;
+      }
+      .result-text {
+        flex: 1;
+        text-align: left;
+      }
+      /* Responsive adjustments */
+      @media (max-width: 576px) {
+        .result-item {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .result-item img {
+          margin-bottom: 10px;
+          margin-right: 0;
+        }
+        #toggleDarkMode {
+          right: 40px;
+        }
+      }
     </style>
   </head>
   <body class="dark-mode">
     <!-- Dark Mode Toggle Button -->
-    <button id="toggleDarkMode" class="btn">☀️</button>
+    <button id="toggleDarkMode" class="btn">🌙</button>
     
     <!-- API Status Indicator -->
     <div id="apiStatus" title="API Status"></div>
@@ -73,135 +118,221 @@
       <button id="sendImage" class="btn btn-success mb-3">Send Images to API</button>
       <div class="progress-container">
         <div class="progress">
-          <div id="progressBar" class="progress-bar progress-bar-striped" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+          <div id="progressBar" class="progress-bar progress-bar-striped" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
         </div>
         <p id="timerEstimate" class="mt-2">Estimated time remaining: 0 minutes</p>
       </div>
     </div>
 
+    <!-- Result Display Section -->
+    <div class="result-container" id="resultContainer">
+      <h2>Prediction Results</h2>
+      <!-- Individual results will be appended here -->
+    </div>
+
+    <!-- Bootstrap JS (Optional) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Your JavaScript -->
     <script>
-      const message = document.getElementById('message');
-      const imageInput = document.getElementById('imageInput');
-      const sendImageButton = document.getElementById('sendImage');
-      const toggleDarkModeButton = document.getElementById('toggleDarkMode');
-      const progressBar = document.getElementById('progressBar');
-      const timerEstimate = document.getElementById('timerEstimate');
-      const apiStatusIndicator = document.getElementById('apiStatus');
-      const { spawn } = require('child_process');
-      //const pyProg = spawn('python',"../Py/api.py " );
-      let selectedImageFiles = [];
+      // Get references to DOM elements
+const imageInput = document.getElementById('imageInput');
+const sendImageButton = document.getElementById('sendImage');
+const message = document.getElementById('message');
+const progressBar = document.getElementById('progressBar');
+const timerEstimate = document.getElementById('timerEstimate');
+const resultContainer = document.getElementById('resultContainer');
+const toggleDarkModeButton = document.getElementById('toggleDarkMode');
+const apiStatusIndicator = document.getElementById('apiStatus');
 
-      // Function to check API status
-      function checkApiStatus() {
-        // Example API Status URL - replace with your actual status endpoint
-        const statusUrl = 'http://localhost:5000/status';
+let selectedImageFiles = [];
+let completedFiles = 0;
 
-        fetch(statusUrl, { method: 'GET' })
-          .then(response => {
-            if (response.ok) {
-              // API is running
-              apiStatusIndicator.style.backgroundColor = 'green';
-              apiStatusIndicator.title = 'API is running';
-            } else {
-              // API responded but with an error status
-              apiStatusIndicator.style.backgroundColor = 'red';
-              apiStatusIndicator.title = 'API error';
-            }
-          })
-          .catch(error => {
-            // Unable to reach API
-            apiStatusIndicator.style.backgroundColor = 'red';
-            apiStatusIndicator.title = 'API is down';
-            console.error('API Status Check Error:', error);
-          });
-      }
+// Handle image selection
+imageInput.addEventListener('change', (event) => {
+    selectedImageFiles = Array.from(event.target.files);
+    if (selectedImageFiles.length > 0) {
+        message.textContent = `Selected ${selectedImageFiles.length} file(s)`;
+    } else {
+        message.textContent = 'Please select images to upload.';
+    }
+});
 
-      // Initial API status check
-      checkApiStatus();
+// Handle send image button click
+sendImageButton.addEventListener('click', () => {
+    if (selectedImageFiles.length > 0) {
+        let totalFiles = selectedImageFiles.length;
+        completedFiles = 0;
+        progressBar.style.width = '0%';
+        progressBar.setAttribute('aria-valuenow', 0);
+        progressBar.textContent = '0%';
+        timerEstimate.textContent = `Estimated time remaining: ${totalFiles * 20} seconds`;
+        resultContainer.innerHTML = '<h2>Prediction Results</h2>'; // Reset results
+        resultContainer.style.display = 'none'; // Hide results initially
 
-      // Check API status every 10 seconds
-      setInterval(checkApiStatus, 10000);
+        selectedImageFiles.forEach((file, index) => {
+            uploadImage(file, index, totalFiles);
+        });
+    } else {
+        message.textContent = 'Please select images first.';
+    }
+});
 
-      imageInput.addEventListener('change', (event) => {
-        selectedImageFiles = Array.from(event.target.files);
-        if (selectedImageFiles.length > 0) {
-          message.textContent = `Selected ${selectedImageFiles.length} file(s)`;
+// Function to upload a single image
+function uploadImage(file, index, totalFiles) {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    // Replace with your actual API endpoint
+    const apiUrl = 'http://localhost:5000/upload';
+
+    fetch(apiUrl, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.message === 'Image uploaded successfully') {
+            const taskId = data.task_id;
+            // Start polling for progress and results
+            pollProgress(taskId, file.name, totalFiles);
         } else {
-          message.textContent = 'Hello World!';
+            message.textContent = `Error uploading image: ${data.error}`;
         }
-      });
+    })
+    .catch(error => {
+        message.textContent = 'Error uploading image.';
+        console.error('Upload Error:', error);
+    });
+}
 
-      sendImageButton.addEventListener('click', () => {
-        if (selectedImageFiles.length > 0) {
-          let totalFiles = selectedImageFiles.length;
-          let completedFiles = 0;
-          progressBar.style.width = '0%';
-          progressBar.setAttribute('aria-valuenow', 0);
-          timerEstimate.textContent = `Estimated time remaining: ${totalFiles * 20} minutes`;
-
-          selectedImageFiles.forEach((file, index) => {
-            const formData = new FormData();
-            formData.append('image', file);
-
-            // Example API URL - replace with your actual API endpoint
-            const apiUrl = 'http://localhost:5000/upload';
-
-            fetch(apiUrl, {
-              method: 'POST',
-              body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-              if (data.message === 'Image uploaded successfully') {
-                completedFiles++;
-                updateProgress(totalFiles);
-              } else {
-                message.textContent = `Error uploading image: ${data.message}`;
-              }
-            })
-            .catch(error => {
-              message.textContent = 'Error uploading image.';
-              console.error('Upload Error:', error);
-            });
-          });
-        } else {
-          message.textContent = 'Please select images first.';
-        }
-      });
-
-      function updateProgress(totalFiles) {
-        const intervalId = setInterval(() => {
-          // Example API Progress URL - replace with your actual progress endpoint
-          const progressUrl = 'http://localhost:5000/progress';
-
-          fetch(progressUrl)
-            .then(response => response.json())
-            .then(data => {
-              let progress = data.progress; // Assume API returns { "progress": 50 }
-              progressBar.style.width = `${progress}%`;
-              progressBar.setAttribute('aria-valuenow', progress);
-              timerEstimate.textContent = `Estimated time remaining: ${Math.max(0, Math.ceil((totalFiles - (progress / 100 * totalFiles)) * 20))} minutes`;
-              console.log(`Progress: ${progress}%`);
-
-              if (progress >= 100) {
+// Function to poll progress for a task
+function pollProgress(taskId, filename, totalFiles) {
+    const intervalId = setInterval(() => {
+        fetch(`http://localhost:5000/progress?task_id=${taskId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
                 clearInterval(intervalId);
-                message.textContent = 'All images processed successfully!';
-              }
-            })
-            .catch(error => {
-              console.error('Error fetching progress:', error);
-            });
-        }, 2000);
-      }
+                message.textContent = `Progress error: ${data.error}`;
+                return;
+            }
 
-      toggleDarkModeButton.addEventListener('click', () => {
-        document.body.classList.toggle('dark-mode');
-        if (document.body.classList.contains('dark-mode')) {
-          toggleDarkModeButton.textContent = '🌙'; // Moon icon
-        } else {
-          toggleDarkModeButton.textContent = '☀️'; // Sun icon
+            const progress = data.progress;
+            updateOverallProgress();
+
+            if (progress >= 100) {
+                clearInterval(intervalId);
+                fetchResult(taskId, filename);
+            }
+        })
+        .catch(error => {
+            clearInterval(intervalId);
+            message.textContent = 'Error fetching progress.';
+            console.error('Progress Polling Error:', error);
+        });
+    }, 1000); // Poll every second
+}
+
+// Function to fetch result after completion
+function fetchResult(taskId, filename) {
+    fetch(`http://localhost:5000/result?task_id=${taskId}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            message.textContent = `Result error: ${data.error}`;
+            return;
         }
-      });
+
+        // Display the result
+        displayResult(taskId, filename, data.result);
+    })
+    .catch(error => {
+        message.textContent = 'Error fetching result.';
+        console.error('Result Fetch Error:', error);
+    });
+}
+
+// Function to display the result in the UI
+function displayResult(taskId, filename, resultMessage) {
+    // Construct the URL to fetch the result image
+    const resultImagePath = `http://localhost:5000/results/${taskId}_${filename}_result.png`;
+
+    // Create a container for each result
+    const individualResultContainer = document.createElement('div');
+    individualResultContainer.classList.add('result-item');
+
+    // Create and set the result image
+    const img = document.createElement('img');
+    img.src = resultImagePath;
+    img.alt = `Result for ${filename}`;
+    img.onerror = () => {
+        img.src = 'path_to_placeholder_image.png'; // Replace with a placeholder image path
+    };
+
+    // Create and set the result text
+    const text = document.createElement('div');
+    text.classList.add('result-text');
+    text.textContent = resultMessage;
+
+    // Append elements to the individual result container
+    individualResultContainer.appendChild(img);
+    individualResultContainer.appendChild(text);
+
+    // Append the individual result container to the main result container
+    resultContainer.appendChild(individualResultContainer);
+
+    // Make sure the result container is visible
+    resultContainer.style.display = 'block';
+}
+
+// Function to update the overall progress bar
+function updateOverallProgress() {
+    completedFiles++;
+    const progressPercentage = (completedFiles / selectedImageFiles.length) * 100;
+    progressBar.style.width = `${progressPercentage}%`;
+    progressBar.setAttribute('aria-valuenow', progressPercentage);
+    progressBar.textContent = `${Math.round(progressPercentage)}%`;
+    timerEstimate.textContent = `Estimated time remaining: ${(selectedImageFiles.length - completedFiles) * 20} seconds`;
+
+    // If all files are processed, reset selection
+    if (completedFiles === selectedImageFiles.length) {
+        selectedImageFiles = [];
+        imageInput.value = ''; // Reset the file input
+    }
+}
+
+// Handle Dark Mode Toggle
+toggleDarkModeButton.addEventListener('click', () => {
+    document.body.classList.toggle('dark-mode');
+    // Toggle icon
+    if (document.body.classList.contains('dark-mode')) {
+        toggleDarkModeButton.textContent = '🌙';
+    } else {
+        toggleDarkModeButton.textContent = '☀️';
+    }
+});
+
+// Function to check API status periodically
+function checkApiStatus() {
+    fetch('http://localhost:5000/status')
+    .then(response => {
+        if (response.ok) {
+            apiStatusIndicator.style.backgroundColor = 'green';
+        } else {
+            apiStatusIndicator.style.backgroundColor = 'red';
+        }
+    })
+    .catch(error => {
+        apiStatusIndicator.style.backgroundColor = 'red';
+        console.error('API Status Check Error:', error);
+    });
+}
+
+// Initial API status check
+checkApiStatus();
+
+// Periodically check API status every 30 seconds
+setInterval(checkApiStatus, 1000);
     </script>
     <!-- Bootstrap JS Bundle (optional) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
