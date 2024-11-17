@@ -255,8 +255,8 @@ function fetchResult(taskId, filename) {
 // Function to display the result in the UI
 function displayResult(taskId, filename, resultMessage) {
     // Construct the URL to fetch the result image
-    const resultImagePath = `http://localhost:5000/results/${taskId}_${filename}_result.png`;
-
+    //const resultImagePath = `http://localhost:5000/results/${taskId}_${filename}_result.png`;
+    const resultImagePath = `http://localhost:5000/results/output.shp`;
     // Create a container for each result
     const individualResultContainer = document.createElement('div');
     individualResultContainer.classList.add('result-item');
@@ -266,7 +266,7 @@ function displayResult(taskId, filename, resultMessage) {
     img.src = resultImagePath;
     img.alt = `Result for ${filename}`;
     img.onerror = () => {
-        img.src = 'path_to_placeholder_image.png'; // Replace with a placeholder image path
+        img.src = 'a5.png'; // Replace with a placeholder image path
     };
 
     // Create and set the result text

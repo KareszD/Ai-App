@@ -6,34 +6,38 @@ import os
 import uuid
 import threading
 import sys
+from JB.NeuralNetworkForFoliageDetection.MainPredict import Predictor
 
-# Configure Flask app
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
-# Configure upload and results folders
-UPLOAD_FOLDER = 'uploads'
-RESULTS_FOLDER = 'results'
+# Get the absolute path to the directory where api.py is located
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Define absolute paths for uploads and results
+UPLOAD_FOLDER = os.path.join( 'uploads')
+
+RESULTS_FOLDER = os.path.join(os.path.dirname(BASE_DIR), 'out')
+print(RESULTS_FOLDER)
+# Create directories if they don't exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
 # Update Python path to include Predictor module
-predictor_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'App', 'Py', 'JB', 'NeuralNetworkForFoliageDetection', 'MainPredict'))
-sys.path.append(predictor_dir)
 
-from JB.NeuralNetworkForFoliageDetection.MainPredict import Predictor
 
-# Store prediction progress and results
+# Dictionaries to track progress and results
 progress_status = {}
 prediction_results = {}
 
 def process_image(file_path, task_id):
     try:
         print(f"[Task {task_id}] Starting prediction for {file_path}")
+        
         # Initialize Predictor instance
         predictor = Predictor(
             Path=file_path,
-            OutputDir=RESULTS_FOLDER,  # Ensure this directory exists
+            OutputDir=RESULTS_FOLDER,
             classNum=6,                # Adjust based on your model
             patchSize=256,             # Adjust based on your model
             IsOutputPOI=False          # Adjust based on your needs
@@ -76,11 +80,12 @@ def upload_image():
     # Generate a unique task ID
     task_id = str(uuid.uuid4())
 
-    # Save the image
+    # Save the image with the task_id prefix
     filename = f'{task_id}_{image.filename}'
     file_path = os.path.join(UPLOAD_FOLDER, filename)
-    image.save(file_path)
+    print(file_path)
 
+    image.save(file_path)
     # Initialize progress and results
     progress_status[task_id] = 0
     prediction_results[task_id] = 'Processing...'

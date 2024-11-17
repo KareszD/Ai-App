@@ -5,7 +5,7 @@ const kill = require('tree-kill');
 
 let mainWindow;
 let apiProcess = null;
-
+let startapibool = false;
 // Function to create the main application window
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -33,7 +33,7 @@ function startApi() {
 
   console.log(`Starting API using batch file at: ${apiPath}`);
   console.log(`Working directory set to: ${options.cwd}`);
-
+  if(startapibool){
   // Spawn the batch file process
   apiProcess = spawn(apiPath, [], options);
 
@@ -55,7 +55,7 @@ function startApi() {
   apiProcess.on('error', (err) => {
     console.error(`Failed to start API process: ${err}`);
     apiProcess = null;
-  });
+  });}
 }
 
 // Function to stop the Flask API
