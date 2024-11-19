@@ -17,7 +17,7 @@
         height: 100vh;
         margin: 0;
         background-color: #f8f9fa;
-        position: relative; /* To position the status indicator and toggle button */
+        position: relative;
       }
       h1 {
         color: #343a40;
@@ -25,7 +25,7 @@
       .container {
         text-align: center;
         width: 100%;
-        max-width: 600px; /* Adjusted for better layout */
+        max-width: 600px;
       }
       .dark-mode {
         background-color: #121212;
@@ -37,12 +37,12 @@
       #toggleDarkMode {
         position: absolute;
         top: 20px;
-        right: 60px; /* Adjusted to make space for the status indicator */
+        right: 60px;
         background: none;
         border: none;
         font-size: 1.5rem;
         cursor: pointer;
-        color: #ffffff; /* Adjust color for visibility in dark mode */
+        color: #ffffff;
       }
       #apiStatus {
         position: absolute;
@@ -51,7 +51,7 @@
         width: 20px;
         height: 20px;
         border-radius: 50%;
-        background-color: red; /* Default to red (API down) */
+        background-color: red;
         border: 2px solid #fff;
       }
       .progress-container {
@@ -59,12 +59,11 @@
         max-width: 500px;
         margin-top: 20px;
       }
-      /* Styles for result display */
       .result-container {
         margin-top: 30px;
         width: 100%;
         max-width: 600px;
-        display: none; /* Hidden by default */
+        display: none;
       }
       .result-item {
         display: flex;
@@ -77,25 +76,17 @@
       .dark-mode .result-item {
         background-color: #1e1e1e;
       }
-      .result-item img {
-        max-width: 150px;
-        max-height: 150px;
-        margin-right: 20px;
-        border-radius: 5px;
+      .result-item a {
+        margin-left: auto;
       }
-      .result-text {
-        flex: 1;
-        text-align: left;
-      }
-      /* Responsive adjustments */
       @media (max-width: 576px) {
         .result-item {
           flex-direction: column;
           align-items: flex-start;
         }
-        .result-item img {
-          margin-bottom: 10px;
-          margin-right: 0;
+        .result-item a {
+          margin-left: 0;
+          margin-top: 10px;
         }
         #toggleDarkMode {
           right: 40px;
@@ -127,7 +118,7 @@
     <!-- Result Display Section -->
     <div class="result-container" id="resultContainer">
       <h2>Prediction Results</h2>
-      <!-- Individual results will be appended here -->
+      <!-- Result will be appended here -->
     </div>
 
     <!-- Bootstrap JS (Optional) -->
@@ -145,13 +136,10 @@
       const apiStatusIndicator = document.getElementById('apiStatus');
       
       let selectedImageFiles = [];
-      let completedFiles = 0;
+      let processing = false;
       
-      // Initialize an object to track progress of each task
-      let tasksProgress = {};
-      
-      // Optional: Track start times for dynamic estimation
-      let taskStartTimes = {};
+      // Optional: Track start time for estimation
+      let startTime = null;
       
       // Handle image selection
       imageInput.addEventListener('change', (event) => {
@@ -166,177 +154,177 @@
       // Handle send image button click
       sendImageButton.addEventListener('click', () => {
           if (selectedImageFiles.length > 0) {
-              let totalFiles = selectedImageFiles.length;
-              completedFiles = 0;
-              tasksProgress = {}; // Reset tasks progress
-              taskStartTimes = {}; // Reset start times
+              if (processing) {
+                  message.textContent = 'Processing is already ongoing. Please wait.';
+                  return;
+              }
+              
+              processing = true;
               progressBar.style.width = '0%';
               progressBar.setAttribute('aria-valuenow', 0);
               progressBar.textContent = '0%';
-              timerEstimate.textContent = `Estimated time remaining: ${totalFiles * 20} seconds`;
+              timerEstimate.textContent = `Estimated time remaining: ${selectedImageFiles.length * 20} seconds`;
               resultContainer.innerHTML = '<h2>Prediction Results</h2>'; // Reset results
               resultContainer.style.display = 'none'; // Hide results initially
-      
-              selectedImageFiles.forEach((file, index) => {
-                  uploadImage(file, index, totalFiles);
-              });
+              
+              // Start processing each image sequentially
+              processNextImage(0);
           } else {
               message.textContent = 'Please select images first.';
           }
       });
       
+      // Function to process images sequentially
+      function processNextImage(index) {
+          if (index >= selectedImageFiles.length) {
+              processing = false;
+              message.textContent = 'All images have been processed.';
+              return;
+          }
+          
+          const file = selectedImageFiles[index];
+          uploadImage(file)
+              .then(() => pollProgress(index))
+              .catch(error => {
+                  message.textContent = `Error processing image ${file.name}: ${error}`;
+                  processing = false;
+              });
+      }
+      
       // Function to upload a single image
-      function uploadImage(file, index, totalFiles) {
-          const formData = new FormData();
-          formData.append('image', file);
-      
-          const apiUrl = 'http://localhost:5000/upload';
-      
-          fetch(apiUrl, {
-              method: 'POST',
-              body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.message === 'Image uploaded successfully') {
-                    const taskId = data.task_id;
-                    tasksProgress[taskId] = 0; // Initialize progress
-                    taskStartTimes[taskId] = Date.now(); // Record start time
-                    pollProgress(taskId, file.name, totalFiles);
-                } else {
-                  message.textContent = `Error uploading image: ${data.error}`;
-              }
-          })
-          .catch(error => {
-              message.textContent = 'Error uploading image.';
-              console.error('Upload Error:', error);
+      function uploadImage(file) {
+          return new Promise((resolve, reject) => {
+              const formData = new FormData();
+              formData.append('image', file);
+          
+              const apiUrl = 'http://localhost:5000/upload';
+          
+              fetch(apiUrl, {
+                  method: 'POST',
+                  body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.message === 'Image uploaded successfully') {
+                        resolve();
+                    } else {
+                      reject(data.error || 'Unknown error');
+                  }
+              })
+              .catch(error => {
+                  console.error('Upload Error:', error);
+                  reject(error);
+              });
           });
       }
       
-      // Function to poll progress for a task
-      function pollProgress(taskId, filename, totalFiles) {
-        const intervalId = setInterval(() => {
-            fetch(`http://localhost:5000/progress?task_id=${taskId}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    clearInterval(intervalId);
-                    message.textContent = `Progress error: ${data.error}`;
-                    return;
-                }
-      
-                // Update the specific task's progress
-                if (tasksProgress[taskId] !== undefined) {
-                    tasksProgress[taskId] = data.progress;
-                }
-      
-                updateOverallProgress(totalFiles);
-      
-                if (data.progress >= 100) {
-                    clearInterval(intervalId);
-                    completedFiles++;
-                    fetchResult(taskId, filename);
-                }
-            })
-            .catch(error => {
-                clearInterval(intervalId);
-                message.textContent = 'Error fetching progress.';
-                console.error('Progress Polling Error:', error);
-            });
-        }, 1000); // Poll every second
+      // Function to poll progress
+      function pollProgress(index) {
+          startTime = Date.now();
+          const intervalId = setInterval(() => {
+              fetch('http://localhost:5000/all_progress')
+              .then(response => response.json())
+              .then(data => {
+                  if (data.progress === -1) {
+                      clearInterval(intervalId);
+                      message.textContent = `Error processing image: ${data.result}`;
+                      processing = false;
+                      return;
+                  }
+                  
+                  // Update progress bar
+                  progressBar.style.width = `${data.progress}%`;
+                  progressBar.setAttribute('aria-valuenow', data.progress);
+                  progressBar.textContent = `${data.progress}%`;
+                  
+                  // Update estimated time
+                  if (data.progress > 0 && data.progress < 100) {
+                      const elapsed = (Date.now() - startTime) / 1000; // in seconds
+                      const estimatedTotal = (elapsed / data.progress) * 100;
+                      const remaining = estimatedTotal - elapsed;
+                      timerEstimate.textContent = `Estimated time remaining: ${Math.round(remaining)} seconds`;
+                  } else if (data.progress === 100) {
+                      clearInterval(intervalId);
+                      fetchResult("output.zip")
+                          .then(() => {
+                              // Proceed to next image
+                              processNextImage(index + 1);
+                          })
+                          .catch(error => {
+                              message.textContent = `Error fetching result: ${error}`;
+                              processing = false;
+                          });
+                  }
+              })
+              .catch(error => {
+                  clearInterval(intervalId);
+                  message.textContent = 'Error fetching progress.';
+                  console.error('Progress Polling Error:', error);
+                  processing = false;
+              });
+          }, 1000); // Poll every second
       }
       
       // Function to fetch result after completion
-      function fetchResult(taskId, filename) {
-          fetch(`http://localhost:5000/result?task_id=${taskId}`)
-          .then(response => response.json())
-          .then(data => {
-              if (data.error) {
-                  message.textContent = `Result error: ${data.error}`;
-                  return;
-              }
-      
-              // Display the result
-              displayResult(taskId, filename, data);
-          })
-          .catch(error => {
-              message.textContent = 'Error fetching result.';
-              console.error('Result Fetch Error:', error);
-          });
+      function fetchResult() {
+          return fetch('http://localhost:5000/result')
+              .then(response => response.json())
+              .then(data => {
+                  if (data.filename) {
+                      displayResult(data.filename);
+                  } else {
+                      displayResult(null, data.result);
+                  }
+              })
+              .catch(error => {
+                  console.error('Result Fetch Error:', error);
+                  throw error;
+              });
       }
       
       // Function to display the result in the UI with a download option
-      function displayResult(taskId, filename, resultData) {
-          if (!resultData.filename) {
+      function displayResult(filename, messageText = 'Prediction completed successfully.') {
+          if (filename) {
+              const resultZipPath = `http://localhost:5000/results/output.zip`;
+          
+              const individualResultContainer = document.createElement('div');
+              individualResultContainer.classList.add('result-item');
+          
+              const downloadLink = document.createElement('a');
+              downloadLink.href = resultZipPath;
+              downloadLink.textContent = 'Download Shapefile ZIP';
+              downloadLink.classList.add('btn', 'btn-primary');
+              downloadLink.setAttribute('download', filename);
+              downloadLink.target = '_blank';
+          
+              const text = document.createElement('div');
+              text.classList.add('result-text');
+              text.textContent = messageText;
+          
+              individualResultContainer.appendChild(text);
+              individualResultContainer.appendChild(downloadLink);
+              resultContainer.appendChild(individualResultContainer);
+              resultContainer.style.display = 'block';
+          } else {
               const individualResultContainer = document.createElement('div');
               individualResultContainer.classList.add('result-item');
       
               const text = document.createElement('div');
               text.classList.add('result-text');
-              text.textContent = `Task ${taskId}: ${resultData.result}`;
+              text.textContent = messageText;
       
               individualResultContainer.appendChild(text);
               resultContainer.appendChild(individualResultContainer);
               resultContainer.style.display = 'block';
-              return;
-          }
-      
-          const resultZipPath = `http://localhost:5000/results/${resultData.filename}`;
-      
-          const individualResultContainer = document.createElement('div');
-          individualResultContainer.classList.add('result-item');
-      
-          const downloadLink = document.createElement('a');
-          downloadLink.href = resultZipPath;
-          downloadLink.textContent = 'Download Shapefile ZIP';
-          downloadLink.classList.add('btn', 'btn-primary');
-          downloadLink.setAttribute('download', resultData.filename);
-          downloadLink.target = '_blank';
-      
-          const text = document.createElement('div');
-          text.classList.add('result-text');
-          text.textContent = `Task ${taskId}: ${resultData.result}`;
-      
-          individualResultContainer.appendChild(text);
-          individualResultContainer.appendChild(downloadLink);
-          resultContainer.appendChild(individualResultContainer);
-          resultContainer.style.display = 'block';
-      }
-      
-      // Function to update the overall progress bar
-      function updateOverallProgress(totalFiles) {
-          const totalProgress = Object.values(tasksProgress).reduce((acc, curr) => acc + curr, 0);
-          const averageProgress = totalProgress / totalFiles;
-      
-          progressBar.style.width = `${averageProgress}%`;
-          progressBar.setAttribute('aria-valuenow', averageProgress);
-          progressBar.textContent = `${Math.round(averageProgress)}%`;
-      
-          // Calculate remaining tasks
-          const remainingTasks = totalFiles - completedFiles;
-      
-          // Calculate average time per completed task
-          let averageTimePerTask = 20; // Default value in seconds
-          const completedTaskIds = Object.keys(tasksProgress).filter(taskId => tasksProgress[taskId] >= 100);
-          if (completedTaskIds.length > 0) {
-              const totalTime = completedTaskIds.reduce((acc, taskId) => {
-                  const startTime = taskStartTimes[taskId];
-                  if (startTime) {
-                      return acc + ((Date.now() - startTime) / 1000); // Convert to seconds
-                  }
-                  return acc;
-              }, 0);
-              averageTimePerTask = totalTime / completedTaskIds.length;
-          }
-      
-          timerEstimate.textContent = `Estimated time remaining: ${Math.round(remainingTasks * averageTimePerTask)} seconds`;
-      
-          // If all tasks are completed, reset selection
-          if (completedFiles === totalFiles) {
-              selectedImageFiles = [];
-              imageInput.value = ''; // Reset the file input
           }
       }
+      
+      // Function to update overall progress (Not needed as progress is global)
+      /*
+      function updateOverallProgress() {
+          // No longer needed
+      }
+      */
       
       // Handle Dark Mode Toggle
       toggleDarkModeButton.addEventListener('click', () => {
@@ -369,7 +357,7 @@
       checkApiStatus();
       
       // Periodically check API status every 30 seconds
-      setInterval(checkApiStatus, 30000); // Changed to 30 seconds
+      setInterval(checkApiStatus, 30000); // 30 seconds
     </script>
     <!-- Bootstrap JS Bundle (optional) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
