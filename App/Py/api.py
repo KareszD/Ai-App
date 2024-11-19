@@ -89,10 +89,6 @@ def process_image(file_path, original_filename):
     finally:
         processing = False
 
-@app.route('/all_progress', methods=['GET'])
-def get_all_progress():
-    return jsonify({'progress': global_progress, 'result': global_result}), 200
-
 @app.route('/upload', methods=['POST'])
 def upload_image():
     global processing, global_progress, global_result
@@ -145,6 +141,8 @@ def get_status():
 
 @app.route('/update_progress', methods=['POST'])
 def update_progress():
+    global global_progress
+
     try:
         # Parse the JSON data from the request
         data = request.get_json()
@@ -152,7 +150,6 @@ def update_progress():
         # Ensure 'progress' is in the data
         if 'progress' not in data:
             return jsonify({'error': 'Missing "progress" in request data'}), 400
-        
         global_progress = data['progress']
         
         # Perform any processing you need with the progress value
@@ -163,6 +160,10 @@ def update_progress():
     except Exception as e:
         # Handle unexpected errors
         return jsonify({'error': f"An error occurred: {str(e)}"}), 500
+
+@app.route('/all_progress', methods=['GET'])
+def get_all_progress():
+    return jsonify({'progress': global_progress, 'result': global_result}), 200
 
 if __name__ == '__main__':
     from waitress import serve
