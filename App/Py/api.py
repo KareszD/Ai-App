@@ -15,6 +15,9 @@ CORS(app, resources={r"/*": {"origins": "*"}})  # Enable CORS for all routes
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 RESULTS_FOLDER = os.path.join(os.path.dirname(BASE_DIR), 'out')
+print(RESULTS_FOLDER)
+print(os.path.join((BASE_DIR), 'out'))
+print(os.path.join(os.path.dirname(RESULTS_FOLDER),"out" ))
 
 # Create directories if they don't exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -67,16 +70,16 @@ def process_image(file_path, original_filename):
         ]
 
         zip_filename = f"{base_filename}.zip"
-        zip_filepath = os.path.join(os.path.dirname(RESULTS_FOLDER), zip_filename)
+        zip_filepath = os.path.join((BASE_DIR), 'out', zip_filename)
         #print(zip_filepath)
         with zipfile.ZipFile(zip_filepath, 'w') as zipf:
             for component in shapefile_components:
-                component_path = os.path.join(os.path.dirname(RESULTS_FOLDER),"out" ,component)
+                component_path = os.path.join((BASE_DIR), 'out',component)
                 #print(component_path)
                 if os.path.exists(component_path):
                     zipf.write(component_path, arcname=component)
                 else:
-                    print(f"Warning: {component} not found.")
+                    print(f"Warning: {component_path} not found.")
 
         # Finalizing
         global_progress = 100
@@ -133,7 +136,10 @@ def get_result():
 @app.route('/results/<filename>', methods=['GET'])
 def get_result_file(filename):
     #print(RESULTS_FOLDER)
-    return send_from_directory(os.path.dirname(RESULTS_FOLDER), filename, as_attachment=True)
+    return send_from_directory(
+    os.path.join(BASE_DIR, 'out'), filename, as_attachment=True
+)
+
 
 @app.route('/status', methods=['GET'])
 def get_status():
