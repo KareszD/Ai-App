@@ -44,7 +44,7 @@ def process_image(file_path, original_filename):
         print("Predictor initialized.")
 
         # Step 1: Initialization
-        global_progress = 10
+        global_progress = 0
 
         # Step 2: Running prediction
         predictor.predict_identification(
@@ -56,7 +56,7 @@ def process_image(file_path, original_filename):
         print("Prediction completed.")
         
         # Step 3: Creating ZIP file
-        global_progress = 80
+        global_progress = 99
 
         base_filename = f"output"
         shapefile_components = [
@@ -68,11 +68,11 @@ def process_image(file_path, original_filename):
 
         zip_filename = f"{base_filename}.zip"
         zip_filepath = os.path.join(os.path.dirname(RESULTS_FOLDER), zip_filename)
-        print(zip_filepath)
+        #print(zip_filepath)
         with zipfile.ZipFile(zip_filepath, 'w') as zipf:
             for component in shapefile_components:
                 component_path = os.path.join(os.path.dirname(RESULTS_FOLDER),"out" ,component)
-                print(component_path)
+                #print(component_path)
                 if os.path.exists(component_path):
                     zipf.write(component_path, arcname=component)
                 else:
@@ -153,7 +153,7 @@ def update_progress():
         global_progress = data['progress']
         
         # Perform any processing you need with the progress value
-        print(f"Received progress update: {global_progress}")
+        #print(f"Received progress update: {global_progress}")
         
         # Return a success response
         return jsonify({'message': 'Progress updated successfully'}), 200
