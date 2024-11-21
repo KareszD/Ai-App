@@ -7,6 +7,7 @@ import threading
 from JB.NeuralNetworkForFoliageDetection.MainPredict import Predictor
 import zipfile
 from pathlib import Path
+import time
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})  # Enable CORS for all routes
@@ -48,15 +49,21 @@ def process_image(file_path, original_filename):
 
         # Step 1: Initialization
         global_progress = 0
-
+        # Record the start time
+        start_time = time.time()
+        print("Starting prediction...")
         # Step 2: Running prediction
         predictor.predict_identification(
-            modelPath=os.path.join("Py", "JB", "NeuralNetworkForFoliageDetection", "FoldiKutya", "foldiKutya_500epoch_CLAHE_NoSelfContemination_SameFiledRes_v9mModel"),
+            modelPath=os.path.join(BASE_DIR, "JB", "NeuralNetworkForFoliageDetection", "FoldiKutya", "foldiKutya_500epoch_CLAHE_NoSelfContemination_SameFiledRes_v9mModel"),
             data_path=file_path,
             input_labels=['label1', 'label2'],  # Replace with your actual labels
             needs_splitting=False
         )
         print("Prediction completed.")
+        # Record the end time
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Prediction completed in {elapsed_time:.2f} seconds.")
         
         # Step 3: Creating ZIP file
         global_progress = 99
