@@ -8,6 +8,7 @@ from JB.NeuralNetworkForFoliageDetection.MainPredict import Predictor
 import zipfile
 from pathlib import Path
 import time
+import torch
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})  # Enable CORS for all routes
@@ -37,6 +38,16 @@ def process_image(file_path, original_filename):
 
         print(f"Starting prediction for {file_path}")
         
+        # **Print Available GPUs using PyTorch**
+        if torch.cuda.is_available():
+            num_gpus = torch.cuda.device_count()
+            print(f"Number of GPUs available: {num_gpus}")
+            for i in range(num_gpus):
+                print(f"GPU {i}: {torch.cuda.get_device_name(i)}")
+        else:
+            print("No GPUs available. Using CPU.")
+
+        #print(f"Starting prediction for {file_path}")
         # Initialize Predictor instance
         predictor = Predictor(
             Path=file_path,
@@ -129,7 +140,7 @@ def upload_image():
     thread.start()
 
     return jsonify({'message': 'Image uploaded successfully'}), 200
-
+'''
 @app.route('/result', methods=['GET'])
 def get_result():
     if global_result and isinstance(global_result, str) and global_result.endswith('.zip'):
@@ -139,7 +150,7 @@ def get_result():
         return jsonify({'result': global_result}), 200
     else:
         return jsonify({'result': 'Processing not completed yet.'}), 200
-
+'''
 @app.route('/results/<filename>', methods=['GET'])
 def get_result_file(filename):
     #print(RESULTS_FOLDER)

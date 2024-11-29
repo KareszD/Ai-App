@@ -251,30 +251,34 @@ function uploadFile(file) {
   
 
   // Function to poll progress
-  const pollProgress = index => {
-    let intervalId = setInterval(() => {
-      const apiUrl = `http://${apiIP}:5000/all_progress`;
+  // Function to poll progress
+const pollProgress = index => {
+  let processNumber = 1;
+  let previousProgress = 0;
+  let waitingForReset = false;
 
-      axios
-        .get(apiUrl)
-        .then(response => {
-          const data = response.data;
-          if (data.progress === -1) {
-            clearInterval(intervalId);
-            setMessage(`Error processing file: ${data.result}`);
-            setProcessing(false);
-            setSnackbarVisible(true);
-            return;
-          }
+  // Start time for the current process
+  let processStartTime = Date.now();
 
-          if (data.progress !== undefined) {
-            setProgress(data.progress / 100);
+  const intervalId = setInterval(() => {
+    const apiUrl = `http://${apiIP}:5000/all_progress`;
+
+    axios
+      .get(apiUrl)
+      .then(response => {
+        const data = response.data;
+        const currentProgress = data.progress;
+
+        if (!waitingForReset) {
+          // Update progress
+          if (currentProgress !== undefined) {
+            setProgress(currentProgress / 100);
           }
 
           // Update estimated time
-          if (data.progress > 0 && data.progress < 100) {
-            const elapsed = (Date.now() - startTime) / 1000; // in seconds
-            const estimatedTotal = (elapsed / data.progress) * 100;
+          if (currentProgress > 0 && currentProgress < 100) {
+            const elapsed = (Date.now() - processStartTime) / 1000; // in seconds
+            const estimatedTotal = (elapsed / currentProgress) * 100;
             const remaining = estimatedTotal - elapsed;
 
             const minutes = Math.floor(remaining / 60);
@@ -283,29 +287,55 @@ function uploadFile(file) {
             setEstimatedTime(
               `Estimated time remaining: ${minutes} minute(s) and ${seconds} second(s)`
             );
-          } else if (data.progress === 100) {
-            clearInterval(intervalId);
-            fetchResult()
-              .then(() => {
-                // Proceed to next file
-                processNextFile(index + 1);
-              })
-              .catch(error => {
-                setMessage(`Error fetching result: ${error}`);
-                setProcessing(false);
-                setSnackbarVisible(true);
-              });
           }
-        })
-        .catch(error => {
-          clearInterval(intervalId);
-          setMessage('Error fetching progress.');
-          console.error('Progress Polling Error:', error);
-          setProcessing(false);
-          setSnackbarVisible(true);
-        });
-    }, 1000); // Poll every second
-  };
+
+          setMessage(`Process ${processNumber}: ${currentProgress}% completed`);
+
+          if (currentProgress >= 100) {
+            if (processNumber >= 2) {
+              // All processes are complete
+              clearInterval(intervalId);
+              fetchResult()
+                .then(() => {
+                  // Proceed to next file
+                  processNextFile(index + 1);
+                })
+                .catch(error => {
+                  setMessage(`Error fetching result: ${error}`);
+                  setProcessing(false);
+                  setSnackbarVisible(true);
+                });
+            } else {
+              // Wait for the progress to reset for the next process
+              waitingForReset = true;
+            }
+          }
+        } else {
+          // Check if the progress has reset for the next process
+          if (currentProgress < previousProgress) {
+            waitingForReset = false;
+            processNumber += 1;
+            processStartTime = Date.now(); // reset start time for new process
+
+            // Reset the progress bar for the next process
+            setProgress(0);
+            setEstimatedTime('');
+            setMessage(`Process ${processNumber}: Starting...`);
+          }
+        }
+
+        previousProgress = currentProgress;
+      })
+      .catch(error => {
+        clearInterval(intervalId);
+        setMessage('Error fetching progress.');
+        console.error('Progress Polling Error:', error);
+        setProcessing(false);
+        setSnackbarVisible(true);
+      });
+  }, 1000); // Poll every second
+};
+
 
   // Function to fetch result after completion
   const fetchResult = () => {
