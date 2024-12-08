@@ -99,6 +99,7 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*val_tmp/
 htmlcov/
 .coverage
 test-results/

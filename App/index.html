@@ -238,8 +238,12 @@
                         progressBar.style.width = `${currentProgress}%`;
                         progressBar.setAttribute('aria-valuenow', currentProgress);
                         progressBar.textContent = `${currentProgress}%`;
-                        message.textContent = `Process ${processNumber}: ${currentProgress}% completed`;
-    
+                        if (processNumber == 1) {
+                          let processText = "Splitting Images";
+                        } else {
+                          let processText = "Predicting on Images";
+                        }
+                        message.textContent = `Process ${processNumber}: ${processText} ${currentProgress}% completed`;
                         if (currentProgress >= 100) {
                             if (processNumber >= 2) {
                                 // All processes are complete

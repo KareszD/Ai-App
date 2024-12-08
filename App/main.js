@@ -5,7 +5,7 @@ const kill = require('tree-kill');
 
 let mainWindow;
 let apiProcess = null;
-let startapibool = false;
+let startapibool = true;
 // Function to create the main application window
 function createWindow() {
   mainWindow = new BrowserWindow({

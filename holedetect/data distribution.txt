@@ -1,0 +1,3 @@
+original amount: 884
+Synthetic data: 248
+background amount: 96

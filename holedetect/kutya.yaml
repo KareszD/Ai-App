@@ -1,0 +1,8 @@
+path: tmp # dataset root dir
+train: autosplit_train.txt
+val: autosplit_val.txt
+test:  # test images (optional)
+
+# Classes
+names:
+  0: POI
