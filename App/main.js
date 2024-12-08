@@ -25,17 +25,17 @@ function createWindow() {
 
 // Function to start the Flask API
 function startApi() {
-  const apiPath = path.join(__dirname, 'Py', 'start.bat');
+  const apiPath = path.join(__dirname, 'Py', 'api.py');
   const options = {
     cwd: path.dirname(apiPath),
-    shell: true,
+    shell: false,
   };
-
+  const pythonExecutable = 'python';
   console.log(`Starting API using batch file at: ${apiPath}`);
   console.log(`Working directory set to: ${options.cwd}`);
   if(startapibool){
   // Spawn the batch file process
-  apiProcess = spawn(apiPath, [], options);
+  apiProcess = spawn(pythonExecutable, [apiPath], options);
 
   console.log(`API process started with PID: ${apiProcess.pid}`);
 
@@ -58,12 +58,9 @@ function startApi() {
   });}
 }
 
-// Function to stop the Flask API
 function stopApi() {
   if (apiProcess) {
     console.log(`Stopping API process with PID: ${apiProcess.pid}`);
-
-    // Use tree-kill to terminate the process and its child processes
     kill(apiProcess.pid, 'SIGTERM', (err) => {
       if (err) {
         console.error(`Failed to terminate process: ${err.message}`);
