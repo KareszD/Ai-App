@@ -150,7 +150,6 @@ tomlkit==0.13.2
 torch==2.5.1 --index-url https://download.pytorch.org/whl/cu118
 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu118
 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cu118
-tornado==6.4.1
 tqdm==4.67.0
 tqdm_joblib==0.0.4
 traitlets==5.14.3
