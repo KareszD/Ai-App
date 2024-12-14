@@ -1,19 +1,20 @@
-# api.py
-
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import os
 import threading
 from JB.NeuralNetworkForFoliageDetection.MainPredict import Predictor
+from JB.NeuralNetworkForFoliageDetection.LabelingTools import Label, Labels
 import zipfile
 from pathlib import Path
 import time
 import torch
 
-app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})  # Enable CORS for all routes
+labels = Labels(())
+labels.ReadJSON("Data/labels.json")
 
-# Define absolute paths for uploads and results
+app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "*"}}) 
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 RESULTS_FOLDER = os.path.join(os.path.dirname(BASE_DIR), 'out')
@@ -21,24 +22,22 @@ print(RESULTS_FOLDER)
 print(os.path.join((BASE_DIR), 'out'))
 print(os.path.join(os.path.dirname(RESULTS_FOLDER),"out" ))
 
-# Create directories if they don't exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
-# Global progress and result variables
 global_progress = 0
 global_result = None
-processing = False  # Flag to indicate if processing is ongoing
+processing = False  
 
 def process_image(file_path, original_filename):
     global global_progress, global_result, processing
     try:
         processing = True
-        global_progress = 10  # Starting progress
+        global_progress = 10  
 
         print(f"Starting prediction for {file_path}")
         
-        # **Print Available GPUs using PyTorch**
+        
         if torch.cuda.is_available():
             num_gpus = torch.cuda.device_count()
             print(f"Number of GPUs available: {num_gpus}")
@@ -48,35 +47,33 @@ def process_image(file_path, original_filename):
             print("No GPUs available. Using CPU.")
 
         #print(f"Starting prediction for {file_path}")
-        # Initialize Predictor instance
+        
         predictor = Predictor(
             Path=file_path,
             OutputDir=RESULTS_FOLDER,
-            classNum=6,                # Adjust based on your model
-            patchSize=256,             # Adjust based on your model
-            IsOutputPOI=False          # Adjust based on your needs
+            classNum=6,                
+            patchSize=256,             
+            IsOutputPOI=False         
         )
         print("Predictor initialized.")
-
-        # Step 1: Initialization
+       
         global_progress = 0
-        # Record the start time
+        
         start_time = time.time()
         print("Starting prediction...")
-        # Step 2: Running prediction
+        
         predictor.predict_identification(
             modelPath=os.path.join(BASE_DIR, "JB", "NeuralNetworkForFoliageDetection", "FoldiKutya", "foldiKutya_500epoch_CLAHE_NoSelfContemination_SameFiledRes_v9mModel"),
             data_path=file_path,
-            input_labels=['label1', 'label2'],  # Replace with your actual labels
+            input_labels=labels.list, 
             needs_splitting=False
         )
         print("Prediction completed.")
-        # Record the end time
+        
         end_time = time.time()
         elapsed_time = end_time - start_time
         print(f"Prediction completed in {elapsed_time:.2f} seconds.")
-        
-        # Step 3: Creating ZIP file
+                
         global_progress = 99
 
         base_filename = f"output"
@@ -96,13 +93,12 @@ def process_image(file_path, original_filename):
                     zipf.write(component_path, arcname=component)
                 else:
                     print(f"Warning: {component_path} not found.")
-
-        # Finalizing
+        
         global_progress = 100
         global_result = zip_filename
         print(f"Progress set to 100%. Zip file created: {zip_filename}")
     except Exception as e:
-        global_progress = -1  # Indicates error
+        global_progress = -1  
         global_result = str(e)
         print(f'Error processing task: {e}')
     finally:
@@ -121,40 +117,26 @@ def upload_image():
 
     if image.filename == '':
         return jsonify({'error': 'No selected file'}), 400
-
-    # Save the image
+   
     filename = image.filename
     file_path = os.path.join(UPLOAD_FOLDER, filename)
     print(f"Saving uploaded image to: {file_path}")
 
     image.save(file_path)
-
-    # Initialize progress and result
+  
     global_progress = 0
     global_result = 'Processing...'
-
-    # Start a new thread to process the image
+   
     thread = threading.Thread(target=process_image, args=(file_path, image.filename))
     thread.start()
 
     return jsonify({'message': 'Image uploaded successfully'}), 200
-'''
-@app.route('/result', methods=['GET'])
-def get_result():
-    if global_result and isinstance(global_result, str) and global_result.endswith('.zip'):
-        return jsonify({'result': 'Prediction completed successfully.', 'filename': global_result}), 200
-    elif global_result:
-        # If result is an error message
-        return jsonify({'result': global_result}), 200
-    else:
-        return jsonify({'result': 'Processing not completed yet.'}), 200
-'''
+
 @app.route('/results/<filename>', methods=['GET'])
 def get_result_file(filename):
     return send_from_directory(
     os.path.join(BASE_DIR, 'out'), filename, as_attachment=True
 )
-
 
 @app.route('/status', methods=['GET'])
 def get_status():
@@ -164,22 +146,18 @@ def get_status():
 def update_progress():
     global global_progress
 
-    try:
-        # Parse the JSON data from the request
+    try:       
         data = request.get_json()
-        
-        # Ensure 'progress' is in the data
+                
         if 'progress' not in data:
             return jsonify({'error': 'Missing "progress" in request data'}), 400
         global_progress = data['progress']
         
-        # Perform any processing you need with the progress value
         #print(f"Received progress update: {global_progress}")
-        
-        # Return a success response
+               
         return jsonify({'message': 'Progress updated successfully'}), 200
     except Exception as e:
-        # Handle unexpected errors
+        
         return jsonify({'error': f"An error occurred: {str(e)}"}), 500
 
 @app.route('/all_progress', methods=['GET'])
