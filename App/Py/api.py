@@ -84,16 +84,14 @@ def process_image(file_path, original_filename):
             f"{base_filename}.shp",
             f"{base_filename}.dbf",
             f"{base_filename}.shx",
-            # Add other components if necessary
+            
         ]
 
         zip_filename = f"{base_filename}.zip"
         zip_filepath = os.path.join((BASE_DIR), 'out', zip_filename)
-        #print(zip_filepath)
         with zipfile.ZipFile(zip_filepath, 'w') as zipf:
             for component in shapefile_components:
                 component_path = os.path.join((BASE_DIR), 'out',component)
-                #print(component_path)
                 if os.path.exists(component_path):
                     zipf.write(component_path, arcname=component)
                 else:
@@ -153,7 +151,6 @@ def get_result():
 '''
 @app.route('/results/<filename>', methods=['GET'])
 def get_result_file(filename):
-    #print(RESULTS_FOLDER)
     return send_from_directory(
     os.path.join(BASE_DIR, 'out'), filename, as_attachment=True
 )

@@ -103,6 +103,8 @@ __pycache__/
 htmlcov/
 .coverage
 test-results/
+foldikutya
+holedetect - Copy
 junit.xml
 pytest.xml
 profiler.log

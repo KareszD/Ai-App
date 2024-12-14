@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="UTF-8">
-    <title>Image Upload UI</title>
+    <title>AiGeoAssistant v1.0.9</title>
     <!-- Bootstrap CSS -->
     <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
@@ -56,7 +56,6 @@
       }
       .progress-container {
         width: 100%;
-        max-width: 500px;
         margin-top: 20px;
       }
       .result-container {
@@ -103,13 +102,21 @@
 
     <div class="container">
       <h1 id="message">Ai Geo Assistant</h1>
+      
+      <!-- Server URL Input -->
+      <div class="mb-3">
+        <input type="text" id="serverUrl" class="form-control" placeholder="Enter server URL (e.g., http://192.168.1.10:5000)">
+      </div>
+
       <div class="mb-3">
         <input type="file" id="imageInput" class="form-control" accept="image/*" multiple>
       </div>
       <button id="sendImage" class="btn btn-success mb-3">Send Images to API</button>
+      
       <div class="progress-container">
         <div class="progress">
-          <div id="progressBar" class="progress-bar progress-bar-striped" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+          <div id="progressBar" class="progress-bar progress-bar-striped" role="progressbar" 
+               style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
         </div>
       </div>
     </div>
@@ -122,268 +129,235 @@
 
     <!-- Bootstrap JS (Optional) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Your JavaScript -->
     <script>
       // Get references to DOM elements
       const imageInput = document.getElementById('imageInput');
       const sendImageButton = document.getElementById('sendImage');
       const message = document.getElementById('message');
       const progressBar = document.getElementById('progressBar');
-      //const timerEstimate = document.getElementById('timerEstimate');
       const resultContainer = document.getElementById('resultContainer');
       const toggleDarkModeButton = document.getElementById('toggleDarkMode');
       const apiStatusIndicator = document.getElementById('apiStatus');
-      
+      const serverUrlInput = document.getElementById('serverUrl');
+
       let selectedImageFiles = [];
       let processing = false;
-      
-      // Optional: Track start time for estimation
-      //let startTime = null;
-      
-       // Handle image selection
-       imageInput.addEventListener('change', (event) => {
+
+      // Handle image selection
+      imageInput.addEventListener('change', (event) => {
         selectedImageFiles = Array.from(event.target.files);
         if (selectedImageFiles.length > 0) {
-            message.textContent = `Selected ${selectedImageFiles.length} file(s)`;
+          message.textContent = `Selected ${selectedImageFiles.length} file(s)`;
         } else {
-            message.textContent = 'Please select images to upload.';
+          message.textContent = 'Please select images to upload.';
         }
-    });
-    
-    // Handle send image button click
-    sendImageButton.addEventListener('click', () => {
+      });
+
+      // Handle send image button click
+      sendImageButton.addEventListener('click', () => {
+        const serverUrl = serverUrlInput.value.trim() || 'http://localhost:5000';
         if (selectedImageFiles.length > 0) {
-            if (processing) {
-                message.textContent = 'Processing is already ongoing. Please wait.';
-                return;
-            }
-            
-            processing = true;
-            progressBar.style.width = '0%';
-            progressBar.setAttribute('aria-valuenow', 0);
-            progressBar.textContent = '0%';
-            //timerEstimate.textContent = `Estimated time remaining: 0 seconds`;
-            resultContainer.innerHTML = '<h2>Prediction Results</h2>'; // Reset results
-            resultContainer.style.display = 'none'; // Hide results initially
-            
-            // Start processing each image sequentially
-            processNextImage(0);
-        } else {
-            message.textContent = 'Please select images first.';
-        }
-    });
-      
-      // Function to process images sequentially
-      function processNextImage(index) {
-          if (index >= selectedImageFiles.length) {
-              processing = false;
-              message.textContent = 'All images have been processed.';
-              return;
+          if (processing) {
+            message.textContent = 'Processing is already ongoing. Please wait.';
+            return;
           }
+
+          processing = true;
+          progressBar.style.width = '0%';
+          progressBar.setAttribute('aria-valuenow', 0);
+          progressBar.textContent = '0%';
+          resultContainer.innerHTML = '<h2>Prediction Results</h2>'; // Reset results
+          resultContainer.style.display = 'none'; // Hide results initially
           
-          const file = selectedImageFiles[index];
-          uploadImage(file)
-              .then(() => pollProgress(index))
-              .catch(error => {
-                  message.textContent = `Error processing image ${file.name}: ${error}`;
-                  processing = false;
-              });
-      }
-      
-      // Function to upload a single image
-      function uploadImage(file) {
-          return new Promise((resolve, reject) => {
-              const formData = new FormData();
-              formData.append('image', file);
-          
-              const apiUrl = 'http://localhost:5000/upload';
-          
-              fetch(apiUrl, {
-                  method: 'POST',
-                  body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.message === 'Image uploaded successfully') {
-                        resolve();
-                    } else {
-                      reject(data.error || 'Unknown error');
-                  }
-              })
-              .catch(error => {
-                  console.error('Upload Error:', error);
-                  reject(error);
-              });
+          // Start processing each image sequentially
+          processNextImage(0, serverUrl);
+        } else {
+          message.textContent = 'Please select images first.';
+        }
+      });
+
+      // Function to process images sequentially
+      function processNextImage(index, serverUrl) {
+        if (index >= selectedImageFiles.length) {
+          processing = false;
+          message.textContent = 'All images have been processed.';
+          return;
+        }
+
+        const file = selectedImageFiles[index];
+        uploadImage(file, serverUrl)
+          .then(() => pollProgress(serverUrl))
+          .catch(error => {
+            message.textContent = `Error processing image ${file.name}: ${error}`;
+            processing = false;
           });
       }
-      let previousProgress = 0;
-      let processCount = 1; // 1: Splitting Images, 2: Predicting on Images
-      let startTime = null;
-      // Function to poll progress
-       // Modified pollProgress function
-       // Modified pollProgress function
-       function pollProgress() {
+
+      // Function to upload a single image
+      function uploadImage(file, serverUrl) {
+        return new Promise((resolve, reject) => {
+          const formData = new FormData();
+          formData.append('image', file);
+
+          const apiUrl = serverUrl + '/upload';
+
+          fetch(apiUrl, {
+            method: 'POST',
+            body: formData
+          })
+          .then(response => response.json())
+          .then(data => {
+              if (data.message === 'Image uploaded successfully') {
+                  resolve();
+              } else {
+                reject(data.error || 'Unknown error');
+            }
+          })
+          .catch(error => {
+            console.error('Upload Error:', error);
+            reject(error);
+          });
+        });
+      }
+
+      // Modified pollProgress function
+      function pollProgress(serverUrl) {
         let processNumber = 1;
         let previousProgress = 0;
         let waitingForReset = false;
-    
+
         const intervalId = setInterval(() => {
-            fetch('http://localhost:5000/all_progress')
-                .then(response => response.json())
-                .then(data => {
-                    const currentProgress = data.progress;
-    
-                    if (!waitingForReset) {
-                        // Update the progress bar
-                        progressBar.style.width = `${currentProgress}%`;
-                        progressBar.setAttribute('aria-valuenow', currentProgress);
-                        progressBar.textContent = `${currentProgress}%`;
-                        if (processNumber == 1) {
-                          let processText = "Splitting Images";
-                        } else {
-                          let processText = "Predicting on Images";
-                        }
-                        message.textContent = `Process ${processNumber}: ${processText} ${currentProgress}% completed`;
-                        if (currentProgress >= 100) {
-                            if (processNumber >= 2) {
-                                // All processes are complete
-                                clearInterval(intervalId);
-                                fetchResult("output.zip")
-                                    .then(() => {
-                                        processing = false;
-                                        message.textContent = 'All images have been processed.';
-                                    })
-                                    .catch(error => {
-                                        message.textContent = `Error fetching result: ${error}`;
-                                        processing = false;
-                                    });
-                            } else {
-                                // Wait for the progress to reset for the next process
-                                waitingForReset = true;
-                            }
-                        }
-                    } else {
-                        // Check if the progress has reset for the next process
-                        if (currentProgress < previousProgress) {
-                            waitingForReset = false;
-                            processNumber += 1;
-    
-                            // Reset the progress bar for the next process
-                            progressBar.style.width = '0%';
-                            progressBar.setAttribute('aria-valuenow', 0);
-                            progressBar.textContent = '0%';
-                            message.textContent = `Process ${processNumber}: Starting...`;
-                        }
-                    }
-    
-                    previousProgress = currentProgress;
-                })
-                .catch(error => {
+          fetch(serverUrl + '/all_progress')
+            .then(response => response.json())
+            .then(data => {
+              const currentProgress = data.progress;
+
+              if (!waitingForReset) {
+                progressBar.style.width = `${currentProgress}%`;
+                progressBar.setAttribute('aria-valuenow', currentProgress);
+                progressBar.textContent = `${currentProgress}%`;
+                let processText = "Waiting";
+                if (processNumber == 1) {
+                  processText = "Splitting Images";
+                }  if (processNumber == 2) {
+                  processText = "Predicting on Images";
+                }
+                message.textContent = `Process ${processNumber}: ${processText} ${currentProgress}% completed`;
+                if (currentProgress >= 100) {
+                  if (processNumber >= 2) {
+                    // All processes are complete
                     clearInterval(intervalId);
-                    message.textContent = 'Error fetching progress.';
-                    console.error('Progress Polling Error:', error);
-                    processing = false;
-                });
-        }, 1000); // Poll every second
-    }
-    
-    
-      
-      // Function to fetch result after completion
-      function fetchResult() {
-          return fetch('http://localhost:5000/result')
-              .then(response => response.json())
-              .then(data => {
-                  if (data.filename) {
-                      displayResult(data.filename);
+                    displayResult("output.zip", serverUrl)
+                      .then(() => {
+                        processing = false;
+                        message.textContent = 'All images have been processed.';
+                      })
+                      .catch(error => {
+                        message.textContent = `Error fetching result: ${error}`;
+                        processing = false;
+                      });
                   } else {
-                      displayResult(null, data.result);
+                    // Wait for the progress to reset for the next process
+                    waitingForReset = true;
                   }
-              })
-              .catch(error => {
-                  console.error('Result Fetch Error:', error);
-                  throw error;
-              });
+                }
+              } else {
+                if (currentProgress < previousProgress) {
+                  waitingForReset = false;
+                  processNumber += 1;
+
+                  // Reset the progress bar for the next process
+                  progressBar.style.width = '0%';
+                  progressBar.setAttribute('aria-valuenow', 0);
+                  progressBar.textContent = '0%';
+                  message.textContent = `Process ${processNumber}: Starting...`;
+                }
+              }
+              previousProgress = currentProgress;
+            })
+            .catch(error => {
+              clearInterval(intervalId);
+              message.textContent = 'Error fetching progress.';
+              console.error('Progress Polling Error:', error);
+              processing = false;
+            });
+        }, 1000);
       }
-      
+
       // Function to display the result in the UI with a download option
-      function displayResult(filename, messageText = 'Prediction completed successfully.') {
+      function displayResult(filename, serverUrl, messageText = 'Prediction completed successfully.') {
+        return new Promise((resolve, reject) => {
           if (filename) {
-              const resultZipPath = `http://localhost:5000/results/output.zip`;
-          
-              const individualResultContainer = document.createElement('div');
-              individualResultContainer.classList.add('result-item');
-          
-              const downloadLink = document.createElement('a');
-              downloadLink.href = resultZipPath;
-              downloadLink.textContent = 'Download Shapefile ZIP';
-              downloadLink.classList.add('btn', 'btn-primary');
-              downloadLink.setAttribute('download', filename);
-              downloadLink.target = '_blank';
-          
-              const text = document.createElement('div');
-              text.classList.add('result-text');
-              text.textContent = messageText;
-          
-              individualResultContainer.appendChild(text);
-              individualResultContainer.appendChild(downloadLink);
-              resultContainer.appendChild(individualResultContainer);
-              resultContainer.style.display = 'block';
+            const resultZipPath = serverUrl + '/results/output.zip';
+        
+            const individualResultContainer = document.createElement('div');
+            individualResultContainer.classList.add('result-item');
+        
+            const downloadLink = document.createElement('a');
+            downloadLink.href = resultZipPath;
+            downloadLink.textContent = 'Download Shapefile ZIP';
+            downloadLink.classList.add('btn', 'btn-primary');
+            downloadLink.setAttribute('download', filename);
+            downloadLink.target = '_blank';
+        
+            const text = document.createElement('div');
+            text.classList.add('result-text');
+            text.textContent = messageText;
+        
+            individualResultContainer.appendChild(text);
+            individualResultContainer.appendChild(downloadLink);
+            resultContainer.appendChild(individualResultContainer);
+            resultContainer.style.display = 'block';
+            resolve();
           } else {
-              const individualResultContainer = document.createElement('div');
-              individualResultContainer.classList.add('result-item');
-      
-              const text = document.createElement('div');
-              text.classList.add('result-text');
-              text.textContent = messageText;
-      
-              individualResultContainer.appendChild(text);
-              resultContainer.appendChild(individualResultContainer);
-              resultContainer.style.display = 'block';
+            const individualResultContainer = document.createElement('div');
+            individualResultContainer.classList.add('result-item');
+    
+            const text = document.createElement('div');
+            text.classList.add('result-text');
+            text.textContent = messageText;
+    
+            individualResultContainer.appendChild(text);
+            resultContainer.appendChild(individualResultContainer);
+            resultContainer.style.display = 'block';
+            resolve();
           }
+        });
       }
-      
-      // Function to update overall progress (Not needed as progress is global)
-      /*
-      function updateOverallProgress() {
-          // No longer needed
-      }
-      */
-      
+
       // Handle Dark Mode Toggle
       toggleDarkModeButton.addEventListener('click', () => {
-          document.body.classList.toggle('dark-mode');
-          // Toggle icon
-          if (document.body.classList.contains('dark-mode')) {
-              toggleDarkModeButton.textContent = '🌙';
-          } else {
-              toggleDarkModeButton.textContent = '☀️';
-          }
+        document.body.classList.toggle('dark-mode');
+        // Toggle icon
+        if (document.body.classList.contains('dark-mode')) {
+          toggleDarkModeButton.textContent = '🌙';
+        } else {
+          toggleDarkModeButton.textContent = '☀️';
+        }
       });
-      
+
       // Function to check API status periodically
       function checkApiStatus() {
-          fetch('http://localhost:5000/status')
-          .then(response => {
-              if (response.ok) {
-                  apiStatusIndicator.style.backgroundColor = 'green';
-              } else {
-                  apiStatusIndicator.style.backgroundColor = 'red';
-              }
-          })
-          .catch(error => {
-              apiStatusIndicator.style.backgroundColor = 'red';
-              console.error('API Status Check Error:', error);
-          });
+        const serverUrl = serverUrlInput.value.trim() || 'http://localhost:5000';
+        fetch(serverUrl + '/status')
+        .then(response => {
+          if (response.ok) {
+            apiStatusIndicator.style.backgroundColor = 'green';
+          } else {
+            apiStatusIndicator.style.backgroundColor = 'red';
+          }
+        })
+        .catch(error => {
+          apiStatusIndicator.style.backgroundColor = 'red';
+          console.error('API Status Check Error:', error);
+        });
       }
-      
+
       // Initial API status check
       checkApiStatus();
-      
-      // Periodically check API status every 30 seconds
-      setInterval(checkApiStatus, 4444); // 30 seconds
+
+      // Periodically check API status every ~4.4 seconds
+      setInterval(checkApiStatus, 4444);
     </script>
-    <!-- Bootstrap JS Bundle (optional) -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   </body>
 </html>
