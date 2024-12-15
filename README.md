@@ -1,10 +1,22 @@
-docker build -t nnnapi .  
+## Szoftver Telepítése és Indítása
 
-Api container indítása
-docker run -d -p  5000:5000 --gpus=all --name foliage_app_container nnnapi
+1. **Telepítse a szoftvert** a megadott telepítési fájlt használva.
+2. **Indítsa el a backend szolgáltatást**.
 
-Alkalmazás buildelése:
-npm run dist
+---
 
-Eloszott tanítást megvalúsító image
-docker pull karesz/yoloddp:1.0.1
+## Tesztelési Útmutató
+
+A tesztelés során **használja a mappában található képfájlt** bemenetként.
+
+---
+
+## API Backend Konténer Indítása
+
+A backend futtatásához kövesse az alábbi lépéseket egy Docker-kompatibilis környezetben:
+
+Húzza le az API backend konténer képét a Docker Hub-ról majd futtassa.
+
+docker pull karesz/aiapi:v1.0.0
+
+docker run -d -p 5000:5000 --gpus=all karesz/aiapi:v1.0.0
