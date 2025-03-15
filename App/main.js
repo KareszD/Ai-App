@@ -1,7 +1,7 @@
+// main.js
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
-const { spawn } = require('child_process');
-const kill = require('tree-kill');
+const { PythonShell } = require('python-shell');
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
 
@@ -11,8 +11,7 @@ autoUpdater.logger.transports.file.level = 'info';
 log.info('App starting...');
 
 let mainWindow;
-let apiProcess = null;
-let startapibool = false;
+let apiShell = null; // This will hold our PythonShell instance
 
 // Function to create the main application window
 function createWindow() {
@@ -21,14 +20,14 @@ function createWindow() {
     height: 700,
     webPreferences: {
       nodeIntegration: true,
-      contextIsolation: false,
+      contextIsolation: false, // In production, consider enabling context isolation for added security
     },
   });
 
   mainWindow.loadFile('index.html');
 
-  // Optionally, open DevTools
-  //mainWindow.webContents.openDevTools();
+  // Optionally, open DevTools:
+  // mainWindow.webContents.openDevTools();
 
   // Check for updates when the window is ready
   mainWindow.once('ready-to-show', () => {
@@ -36,55 +35,59 @@ function createWindow() {
   });
 }
 
-// Function to start the Flask API
+// Function to start the Python API using PythonShell
 function startApi() {
-  const pythonExecutable = 'python';
-  const apiPath = path.join(__dirname, 'Py', 'api.py');
+  const pythonExecutable = 'python'; // Change to 'python3' if needed
+  const scriptName = 'api.py'; // Your Python script in the "Py" folder
+
+  // Options: Use unbuffered mode (-u) to immediately flush output
   const options = {
-    cwd: path.dirname(apiPath),
-    shell: false,
+    pythonPath: pythonExecutable,
+    scriptPath: path.join(__dirname, 'Py'),
+    pythonOptions: ['-u'], // Unbuffered output for real-time logging
+    // args: [] // Add any additional arguments here if needed
   };
 
-  console.log(`Starting API using script at: ${apiPath}`);
-  console.log(`Working directory set to: ${options.cwd}`);
-  if (startapibool) {
-    apiProcess = spawn(pythonExecutable, [apiPath], options);
-    apiProcess.unref();
-    console.log(`API process started with PID: ${apiProcess.pid}`);
+  log.info(`Starting API using PythonShell with script: ${path.join(__dirname, 'Py', scriptName)}`);
 
-    apiProcess.stdout.on('data', (data) => {
-      console.log(`API stdout: ${data}`);
-    });
+  // Start the Python script
+  apiShell = new PythonShell(scriptName, options);
 
-    apiProcess.stderr.on('data', (data) => {
-      console.error(`API stderr: ${data}`);
-    });
+  // Listen for messages from the Python process (for example, print() statements)
+  apiShell.on('message', (message) => {
+    log.info(`API message: ${message}`);
+  });
 
-    apiProcess.on('close', (code) => {
-      console.log(`API process exited with code ${code}`);
-      apiProcess = null;
-    });
+  // Listen for error events
+  apiShell.on('error', (err) => {
+    log.error(`PythonShell error: ${err}`);
+  });
 
-    apiProcess.on('error', (err) => {
-      console.error(`Failed to start API process: ${err}`);
-      apiProcess = null;
-    });
-  }
+  // When the Python process ends, log that fact
+  apiShell.on('close', () => {
+    log.info('PythonShell process closed.');
+    apiShell = null;
+  });
 }
 
-// Function to stop the Flask API
+// Function to stop the Python API gracefully
 function stopApi() {
-  if (apiProcess) {
-    console.log(`Stopping API process with PID: ${apiProcess.pid}`);
-    kill(apiProcess.pid, 'SIGTERM', (err) => {
-      if (err) {
-        console.error(`Failed to terminate process: ${err.message}`);
-      } else {
-        console.log(`API process terminated.`);
-      }
-      apiProcess = null;
-    });
-  }
+  return new Promise((resolve) => {
+    if (apiShell) {
+      log.info('Stopping PythonShell API process...');
+      apiShell.end((err, code, signal) => {
+        if (err) {
+          log.error(`Error terminating API process: ${err}`);
+        } else {
+          log.info(`API process terminated (code: ${code}, signal: ${signal}).`);
+        }
+        apiShell = null;
+        resolve();
+      });
+    } else {
+      resolve();
+    }
+  });
 }
 
 // Auto-update event listeners
@@ -111,46 +114,46 @@ autoUpdater.on('download-progress', (progressObj) => {
 
 autoUpdater.on('update-downloaded', (info) => {
   log.info('Update downloaded:', info);
-  // Notify user and install update
-  mainWindow.webContents.send('updateReady');
+  if (mainWindow && mainWindow.webContents) {
+    mainWindow.webContents.send('updateReady');
+  }
   autoUpdater.quitAndInstall();
 });
 
-// Handle application ready event
+// Application lifecycle events
 app.whenReady().then(() => {
   createWindow();
   startApi();
 
-  app.on('activate', function () {
+  app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
-// Handle application before-quit event to stop the API
-app.on('before-quit', () => {
-  stopApi();
+app.on('before-quit', async (event) => {
+  event.preventDefault(); // Prevent immediate quit so we can shut down the API gracefully.
+  await stopApi();
+  app.exit();
 });
 
-// Handle all windows closed event
-app.on('window-all-closed', function () {
+app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
-    stopApi();
-    app.quit();
+    stopApi().then(() => {
+      app.quit();
+    });
   }
 });
 
-// Handle termination signals
-process.on('SIGINT', () => {
-  console.log('Received SIGINT.');
-  stopApi();
-  app.quit();
-});
+// Handle termination signals for graceful shutdown
+const gracefulShutdown = () => {
+  log.info('Received termination signal.');
+  stopApi().then(() => {
+    app.quit();
+  });
+};
 
-process.on('SIGTERM', () => {
-  console.log('Received SIGTERM.');
-  stopApi();
-  app.quit();
-});
+process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', gracefulShutdown);
 
 app.on('quit', () => {
   stopApi();
