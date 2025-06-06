@@ -4,11 +4,13 @@ import os
 import threading
 from JB.NeuralNetworkForFoliageDetection.MainPredict import Predictor
 from JB.NeuralNetworkForFoliageDetection.LabelingTools import Label, Labels
+#from JB.NeuralNetworkForFoliageDetection import MainPredict
+#from JB.NeuralNetworkForFoliageDetection import LabelingTools
 import zipfile
 from pathlib import Path
 import time
 import torch
-
+import encodings
 labels = Labels(())
 labels.ReadJSON("Data/labels.json")
 

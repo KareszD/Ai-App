@@ -27,7 +27,7 @@ function createWindow() {
   mainWindow.loadFile('index.html');
 
   // Optionally, open DevTools:
-  // mainWindow.webContents.openDevTools();
+  mainWindow.webContents.openDevTools();
 
   // Check for updates when the window is ready
   mainWindow.once('ready-to-show', () => {
